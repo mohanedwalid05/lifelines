@@ -12,6 +12,8 @@ import db from "../../database/firebase.js";
 // Collection names
 const SUPPLY_TYPES_COLLECTION = "supply_types";
 const ZONES_COLLECTION = "zones";
+const REGIONS_COLLECTION = "regions";
+const BOUNDARIES_COLLECTION = "boundaries";
 
 // Basic supply types
 const BASIC_SUPPLY_TYPES = [
@@ -21,6 +23,83 @@ const BASIC_SUPPLY_TYPES = [
   { name: "Shelter" },
   { name: "Hygiene" },
 ];
+
+// Region Functions
+export async function getRegion(regionId) {
+  try {
+    const docRef = doc(db, REGIONS_COLLECTION, regionId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      console.log("No region found with ID:", regionId);
+      return null;
+    }
+    return { id: docSnap.id, ...docSnap.data() };
+  } catch (error) {
+    console.error("Error getting region:", error);
+    throw error;
+  }
+}
+
+export async function getZonesForRegion(regionId) {
+  try {
+    // First get the region to get zoneRefs
+    const region = await getRegion(regionId);
+    console.log("Region data:", region);
+
+    if (!region || !region.zoneRefs) {
+      console.log("No zones found for region:", regionId);
+      return [];
+    }
+
+    // Fetch each zone and its boundary
+    const zones = [];
+    for (const zoneId of region.zoneRefs) {
+      console.log("Processing zone:", zoneId);
+      const zoneDoc = await getDoc(doc(db, ZONES_COLLECTION, zoneId));
+      if (zoneDoc.exists()) {
+        const zoneData = zoneDoc.data();
+        console.log("Zone data:", zoneData);
+
+        // Get the boundary data
+        const boundaryDoc = await getDoc(
+          doc(db, BOUNDARIES_COLLECTION, zoneData.boundaryId)
+        );
+        if (boundaryDoc.exists()) {
+          const boundaryData = boundaryDoc.data();
+          console.log("Raw boundary data:", boundaryData);
+
+          try {
+            // Parse the geometry string back to JSON
+            const geometry = JSON.parse(boundaryData.geometry);
+            console.log("Parsed geometry:", geometry);
+
+            zones.push({
+              ...zoneData,
+              boundaries: geometry,
+            });
+          } catch (parseError) {
+            console.error(
+              "Error parsing geometry for zone:",
+              zoneId,
+              parseError
+            );
+            // Continue with next zone if parsing fails
+            continue;
+          }
+        } else {
+          console.log("No boundary found for zone:", zoneId);
+        }
+      } else {
+        console.log("Zone not found:", zoneId);
+      }
+    }
+    console.log("Final zones array:", zones);
+    return zones;
+  } catch (error) {
+    console.error("Error getting zones for region:", error);
+    throw error;
+  }
+}
 
 // Supply Types Functions
 export async function initializeBasicSupplyTypes() {

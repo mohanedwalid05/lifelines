@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import InfoPopup from "./InfoPopup";
-import {
-  createOrUpdateZone,
-  initializeZoneSupplies,
-} from "../utils/firebase-utils";
+import { getZonesForRegion } from "../utils/firebase-utils.js";
 
 const COLORS = [
   "#FF6B6B",
@@ -33,58 +30,26 @@ export default function Map({
   const mapContainer = useRef(null);
   const map = useRef(null);
 
-  const fetchBoundaries = async (country) => {
+  const fetchZones = async (country) => {
     try {
-      const response = await fetch(
-        `https://api.geoapify.com/v1/boundaries/consists-of?id=${country.placeId}&geometry=geometry_1000&apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`
-      );
+      const zones = await getZonesForRegion(country.code);
+      console.log("Fetched zones:", zones);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch boundaries");
-      }
-
-      const data = await response.json();
-
-      if (!data.features?.length) {
-        throw new Error("No boundaries found");
-      }
-
-      const features = data.features.map((feature, index) => ({
+      const features = zones.map((zone, index) => ({
         type: "Feature",
         properties: {
-          ...feature.properties,
+          id: zone.id,
+          name: zone.name,
+          type: zone.type || "Region",
           fillColor: COLORS[index % COLORS.length],
-          name: feature.properties.name,
-          type: feature.properties.type || "Region",
-          details: feature.properties.formatted,
         },
-        geometry: feature.geometry,
+        geometry: zone.boundaries,
       }));
-
-      // Create or update zones in Firebase
-      for (const feature of features) {
-        const zoneId = `${country.code}-${feature.properties.name
-          .replace(/\s+/g, "-")
-          .toLowerCase()}`;
-        const zone = {
-          id: zoneId,
-          name: feature.properties.name,
-          countryCode: country.code,
-          supplies: [],
-        };
-
-        await createOrUpdateZone(zone);
-        await initializeZoneSupplies(zoneId);
-      }
 
       // Send regions data to parent
       onRegionsLoad(
         features.map((f) => ({
           ...f.properties,
-          fillColor: f.properties.fillColor,
-          id: `${country.code}-${f.properties.name
-            .replace(/\s+/g, "-")
-            .toLowerCase()}`,
         }))
       );
 
@@ -103,7 +68,7 @@ export default function Map({
       onLoadingChange(true);
       onErrorChange(null);
 
-      const boundariesData = await fetchBoundaries(country);
+      const boundariesData = await fetchZones(country);
 
       if (map.current.getSource("regions")) {
         map.current.getSource("regions").setData(boundariesData);

@@ -1,38 +1,61 @@
 "use client";
 
-import Image from "next/image";
-import db from "../../database/firebase.js";
-import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
+import { getRegion, getZonesForRegion } from "../utils/firebase-utils.js";
 
 export default function Test() {
-  const [userData, setUserData] = useState(null);
+  const [testData, setTestData] = useState(null);
+  const [error, setError] = useState(null);
 
-  const getFirebaseData = async () => {
+  const testGetRegion = async () => {
     try {
-      console.log(db);
-      const data = await getDoc(doc(db, "users", "7PXm7SSUcQxYspWkgMDu"));
-      setUserData(data.data());
-      console.log(data.data());
+      const region = await getRegion("PS");
+      console.log("Region data:", region);
+      setTestData(region);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error:", error);
+      setError(error.message);
+    }
+  };
+
+  const testGetZones = async () => {
+    try {
+      const zones = await getZonesForRegion("PS");
+      console.log("Zones data:", zones);
+      setTestData(zones);
+    } catch (error) {
+      console.error("Error:", error);
+      setError(error.message);
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <button
-        onClick={getFirebaseData}
-        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        Get Data
-      </button>
+      <div className="space-x-4 mb-8">
+        <button
+          onClick={testGetRegion}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Test Get Region
+        </button>
+        <button
+          onClick={testGetZones}
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+        >
+          Test Get Zones
+        </button>
+      </div>
 
-      {userData && (
-        <div className="mt-4 p-4 border rounded-lg shadow-lg">
-          <h2 className="text-xl font-bold mb-2">User Data:</h2>
-          <pre className="bg-gray-800 p-4 rounded">
-            {JSON.stringify(userData, null, 2)}
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          Error: {error}
+        </div>
+      )}
+
+      {testData && (
+        <div className="mt-4 p-4 border rounded-lg shadow-lg w-full max-w-4xl">
+          <pre className="bg-gray-800 text-white p-4 rounded overflow-auto max-h-[600px]">
+            {JSON.stringify(testData, null, 2)}
           </pre>
         </div>
       )}
