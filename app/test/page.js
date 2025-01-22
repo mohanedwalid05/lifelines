@@ -11,8 +11,10 @@ import {
   getZone,
   initializeZoneSupplies,
 } from "../utils/firebase-utils.js";
+import RequireAuth from "../components/auth/RequireAuth";
+import UserStatus from "../components/auth/UserStatus";
 
-export default function Test() {
+export default function TestPage() {
   const [testData, setTestData] = useState(null);
   const [error, setError] = useState(null);
   const [supplyTypes, setSupplyTypes] = useState([]);
@@ -191,159 +193,167 @@ export default function Test() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <div className="space-x-4 mb-8">
-        <button
-          onClick={testGetRegion}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Test Get Region
-        </button>
-        <button
-          onClick={testGetZones}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          Test Get Zones
-        </button>
-        <button
-          onClick={initializeAllZonesSupplies}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-        >
-          Initialize All Zones Supplies
-        </button>
-        <button
-          onClick={deleteAllSupplies}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Delete All Supplies
-        </button>
-      </div>
-
-      {/* Supply Management Form */}
-      <div className="w-full max-w-md mb-8">
-        <h2 className="text-xl font-bold mb-4">Update Supplies</h2>
-        <form onSubmit={handleUpdateSupplies} className="space-y-4">
-          {/* Region Selector */}
-          <div>
-            <label className="block mb-2">Select Region:</label>
-            <select
-              value={selectedRegionCode}
-              onChange={(e) => setSelectedRegionCode(e.target.value)}
-              className="w-full text-black p-2 border rounded"
-            >
-              {COUNTRIES.map((country) => (
-                <option
-                  key={country.code}
-                  value={country.code}
-                  className="text-black"
-                >
-                  {country.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Zone Selector */}
-          <div>
-            <label className="block mb-2">Select Zone:</label>
-            <select
-              value={selectedZone}
-              onChange={(e) => setSelectedZone(e.target.value)}
-              className="w-full text-black p-2 border rounded"
-            >
-              <option value="" className="text-black">
-                Select a zone...
-              </option>
-              {zones.map((zone) => (
-                <option key={zone.id} value={zone.id} className="text-black">
-                  {zone.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2">Supply Type:</label>
-            <select
-              value={supplies.supplyTypeId}
-              onChange={(e) =>
-                setSupplies({ ...supplies, supplyTypeId: e.target.value })
-              }
-              className="w-full text-black p-2 border rounded"
-            >
-              <option className="text-black" value="">
-                Select a supply type...
-              </option>
-              {supplyTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2">Quantity Available:</label>
-            <input
-              type="number"
-              value={supplies.quantity}
-              onChange={(e) =>
-                setSupplies({ ...supplies, quantity: parseInt(e.target.value) })
-              }
-              className="w-full text-black p-2 border rounded"
-              min="0"
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2">Quantity Needed:</label>
-            <input
-              type="number"
-              value={supplies.need}
-              onChange={(e) =>
-                setSupplies({ ...supplies, need: parseInt(e.target.value) })
-              }
-              className="w-full text-black p-2 border rounded"
-              min="0"
-            />
-          </div>
-
+    <RequireAuth>
+      <div className="flex flex-col items-center justify-center min-h-screen p-8">
+        <div className="w-full max-w-4xl mb-8">
+          <UserStatus />
+        </div>
+        <div className="space-x-4 mb-8">
           <button
-            type="submit"
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={testGetRegion}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            Update Supplies
+            Test Get Region
           </button>
-        </form>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          Error: {error}
+          <button
+            onClick={testGetZones}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Test Get Zones
+          </button>
+          <button
+            onClick={initializeAllZonesSupplies}
+            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+          >
+            Initialize All Zones Supplies
+          </button>
+          <button
+            onClick={deleteAllSupplies}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Delete All Supplies
+          </button>
         </div>
-      )}
 
-      <div className="w-full max-w-4xl">
-        <Map
-          selectedCountry={COUNTRIES[0]} // Gaza City
-          loading={loading}
-          error={error}
-          onLoadingChange={setLoading}
-          onErrorChange={setError}
-          onRegionsLoad={setZones}
-          selectedRegion={selectedRegion}
-          onRegionSelect={setSelectedRegion}
-          supplyUpdateTrigger={supplyUpdateCounter}
-        />
-      </div>
+        {/* Supply Management Form */}
+        <div className="w-full max-w-md mb-8">
+          <h2 className="text-xl font-bold mb-4">Update Supplies</h2>
+          <form onSubmit={handleUpdateSupplies} className="space-y-4">
+            {/* Region Selector */}
+            <div>
+              <label className="block mb-2">Select Region:</label>
+              <select
+                value={selectedRegionCode}
+                onChange={(e) => setSelectedRegionCode(e.target.value)}
+                className="w-full text-black p-2 border rounded"
+              >
+                {COUNTRIES.map((country) => (
+                  <option
+                    key={country.code}
+                    value={country.code}
+                    className="text-black"
+                  >
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-      {testData && (
-        <div className="mt-4 p-4 border rounded-lg shadow-lg w-full max-w-4xl">
-          <pre className="bg-gray-800 text-white p-4 rounded overflow-auto max-h-[600px]">
-            {JSON.stringify(testData, null, 2)}
-          </pre>
+            {/* Zone Selector */}
+            <div>
+              <label className="block mb-2">Select Zone:</label>
+              <select
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                className="w-full text-black p-2 border rounded"
+              >
+                <option value="" className="text-black">
+                  Select a zone...
+                </option>
+                {zones.map((zone) => (
+                  <option key={zone.id} value={zone.id} className="text-black">
+                    {zone.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block mb-2">Supply Type:</label>
+              <select
+                value={supplies.supplyTypeId}
+                onChange={(e) =>
+                  setSupplies({ ...supplies, supplyTypeId: e.target.value })
+                }
+                className="w-full text-black p-2 border rounded"
+              >
+                <option className="text-black" value="">
+                  Select a supply type...
+                </option>
+                {supplyTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block mb-2">Quantity Available:</label>
+              <input
+                type="number"
+                value={supplies.quantity}
+                onChange={(e) =>
+                  setSupplies({
+                    ...supplies,
+                    quantity: parseInt(e.target.value),
+                  })
+                }
+                className="w-full text-black p-2 border rounded"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-2">Quantity Needed:</label>
+              <input
+                type="number"
+                value={supplies.need}
+                onChange={(e) =>
+                  setSupplies({ ...supplies, need: parseInt(e.target.value) })
+                }
+                className="w-full text-black p-2 border rounded"
+                min="0"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Update Supplies
+            </button>
+          </form>
         </div>
-      )}
-    </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            Error: {error}
+          </div>
+        )}
+
+        <div className="w-full max-w-4xl">
+          <Map
+            selectedCountry={COUNTRIES[0]} // Gaza City
+            loading={loading}
+            error={error}
+            onLoadingChange={setLoading}
+            onErrorChange={setError}
+            onRegionsLoad={setZones}
+            selectedRegion={selectedRegion}
+            onRegionSelect={setSelectedRegion}
+            supplyUpdateTrigger={supplyUpdateCounter}
+          />
+        </div>
+
+        {testData && (
+          <div className="mt-4 p-4 border rounded-lg shadow-lg w-full max-w-4xl">
+            <pre className="bg-gray-800 text-white p-4 rounded overflow-auto max-h-[600px]">
+              {JSON.stringify(testData, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    </RequireAuth>
   );
 }

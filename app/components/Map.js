@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -8,6 +9,10 @@ import {
 } from "../utils/firebase-utils.js";
 import { collection, onSnapshot } from "firebase/firestore";
 import db from "../../database/firebase.js";
+import { COUNTRIES } from "../data/countries";
+import { getAuth } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { ORGANIZATIONS_COLLECTION } from "../data/collections";
 
 // Define color stops for the gradient
 const COLOR_STOPS = {
@@ -101,6 +106,9 @@ const calculateZoneColor = (supplies, selectedSupplyType) => {
   }
 };
 
+// Initialize Mapbox access token
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
 export default function Map({
   selectedCountry,
   loading,
@@ -117,8 +125,8 @@ export default function Map({
   const zonesListener = useRef(null);
   const [selectedSupplyType, setSelectedSupplyType] = useState("");
   const [supplyTypes, setSupplyTypes] = useState([]);
+  const [mapInitialized, setMapInitialized] = useState(false);
 
-  // Load supply types
   useEffect(() => {
     const loadSupplyTypes = async () => {
       try {
@@ -128,43 +136,13 @@ export default function Map({
         console.error("Error loading supply types:", error);
       }
     };
+
     loadSupplyTypes();
   }, []);
 
-  const fetchZones = async (country) => {
-    try {
-      const zones = await getZonesForRegion(country.code);
-      console.log("Fetched zones:", zones);
-
-      const features = zones.map((zone) => ({
-        type: "Feature",
-        properties: {
-          id: zone.id,
-          name: zone.name,
-          type: zone.type || "Region",
-          fillColor: calculateZoneColor(zone.supplies, selectedSupplyType),
-          supplies: zone.supplies,
-        },
-        geometry: zone.boundaries,
-      }));
-
-      onRegionsLoad(
-        features.map((f) => ({
-          ...f.properties,
-        }))
-      );
-
-      return {
-        type: "FeatureCollection",
-        features,
-      };
-    } catch (error) {
-      console.error("Error:", error);
-      throw error;
-    }
-  };
-
   const updateMapData = async (country) => {
+    if (!map.current || !mapInitialized) return;
+
     try {
       onLoadingChange(true);
       onErrorChange(null);
@@ -245,36 +223,77 @@ export default function Map({
     }
   };
 
+  // Initialize map
   useEffect(() => {
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (map.current || !mapContainer.current) return;
 
-    if (map.current) return;
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: selectedCountry.center,
-      zoom: selectedCountry.zoom,
-      minZoom: 2,
-      maxZoom: 18,
-    });
+    if (user) {
+      // Get the user's organization data
+      const orgRef = doc(db, ORGANIZATIONS_COLLECTION, user.uid);
+      getDoc(orgRef).then((orgDoc) => {
+        if (orgDoc.exists()) {
+          const orgData = orgDoc.data();
+          if (orgData.lastDonationRegion) {
+            const donatedCountry = COUNTRIES.find(
+              (c) => c.code === orgData.lastDonationRegion
+            );
+            if (donatedCountry) {
+              selectedCountry = donatedCountry;
+            }
+          }
+        }
 
-    map.current.on("load", () => {
-      updateMapData(selectedCountry);
-    });
+        // Initialize map with selected country
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: "mapbox://styles/mapbox/light-v11",
+          center: selectedCountry.center,
+          zoom: selectedCountry.zoom,
+          minZoom: 2,
+          maxZoom: 18,
+        });
 
-    return () => map.current?.remove();
+        map.current.on("load", () => {
+          setMapInitialized(true);
+        });
+      });
+    } else {
+      // No user logged in, initialize with default country
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/light-v11",
+        center: selectedCountry.center,
+        zoom: selectedCountry.zoom,
+        minZoom: 2,
+        maxZoom: 18,
+      });
+
+      map.current.on("load", () => {
+        setMapInitialized(true);
+      });
+    }
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
   }, []);
 
+  // Update map when initialized
   useEffect(() => {
-    if (map.current && map.current.loaded()) {
+    if (mapInitialized) {
       updateMapData(selectedCountry);
     }
-  }, [selectedCountry]);
+  }, [mapInitialized, selectedCountry]);
 
+  // Update when selected region changes
   useEffect(() => {
-    // Update opacity when selected region changes
-    if (map.current && map.current.getLayer("region-fills")) {
+    if (mapInitialized && map.current.getLayer("region-fills")) {
       map.current.setPaintProperty("region-fills", "fill-opacity", [
         "case",
         ["==", ["get", "name"], selectedRegion?.name || ""],
@@ -284,57 +303,54 @@ export default function Map({
     }
   }, [selectedRegion]);
 
+  // Update when supply type changes
   useEffect(() => {
-    if (
-      map.current &&
-      map.current.loaded() &&
-      map.current.getSource("regions")
-    ) {
-      updateMapData(selectedCountry);
-    }
-  }, [supplyUpdateTrigger]);
-
-  // Add real-time listener for zones collection
-  useEffect(() => {
-    // Set up real-time listener for the zones collection
-    const zonesRef = collection(db, "zones");
-    zonesListener.current = onSnapshot(
-      zonesRef,
-      (snapshot) => {
-        if (map.current && map.current.loaded()) {
-          // Update map when any zone changes
-          updateMapData(selectedCountry);
-        }
-      },
-      (error) => {
-        console.error("Error listening to zones:", error);
-        onErrorChange(error.message);
-      }
-    );
-
-    // Cleanup listener when component unmounts
-    return () => {
-      if (zonesListener.current) {
-        zonesListener.current();
-      }
-    };
-  }, [selectedCountry]); // Re-establish listener when country changes
-
-  // Add effect to update map when supply type changes
-  useEffect(() => {
-    if (
-      map.current &&
-      map.current.loaded() &&
-      map.current.getSource("regions")
-    ) {
+    if (mapInitialized && map.current.getSource("regions")) {
       updateMapData(selectedCountry);
     }
   }, [selectedSupplyType]);
 
+  // Listen for supply updates
+  useEffect(() => {
+    if (mapInitialized && map.current.getSource("regions")) {
+      updateMapData(selectedCountry);
+    }
+  }, [supplyUpdateTrigger]);
+
+  const fetchZones = async (country) => {
+    try {
+      const zones = await getZonesForRegion(country.code);
+
+      const features = zones.map((zone) => ({
+        type: "Feature",
+        properties: {
+          id: zone.id,
+          name: zone.name,
+          type: zone.type || "Region",
+          fillColor: calculateZoneColor(zone.supplies, selectedSupplyType),
+          supplies: zone.supplies,
+        },
+        geometry: zone.boundaries,
+      }));
+
+      onRegionsLoad(
+        features.map((f) => ({
+          ...f.properties,
+        }))
+      );
+
+      return {
+        type: "FeatureCollection",
+        features,
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+
   return (
-    <div className="relative">
-      {/* Supply Type Filter */}
-      <div className="absolute top-4 left-4 z-10 bg-white p-2 rounded-lg shadow-md">
+    <div className="relative w-full h-[600px]">
+      <div className="absolute top-4 left-4 z-10">
         <select
           value={selectedSupplyType}
           onChange={(e) => setSelectedSupplyType(e.target.value)}
@@ -356,15 +372,14 @@ export default function Map({
           <div className="text-lg">Loading map data...</div>
         </div>
       )}
+
       {error && (
         <div className="absolute top-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-10">
           Error: {error}
         </div>
       )}
-      <div
-        ref={mapContainer}
-        className="w-full h-[600px] rounded-lg shadow-lg"
-      />
+
+      <div ref={mapContainer} className="w-full h-full" />
       <InfoPopup
         info={selectedRegion}
         onClose={() => onRegionSelect(null)}

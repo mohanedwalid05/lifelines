@@ -6,14 +6,24 @@ import {
   setDoc,
   updateDoc,
   addDoc,
+  arrayUnion,
 } from "firebase/firestore";
 import db from "../../database/firebase.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 // Collection names
 const SUPPLY_TYPES_COLLECTION = "supply_types";
 const ZONES_COLLECTION = "zones";
 const REGIONS_COLLECTION = "regions";
 const BOUNDARIES_COLLECTION = "boundaries";
+const ORGANIZATIONS_COLLECTION = "organizations";
+const DONATIONS_COLLECTION = "donations";
 
 // Basic supply types
 const BASIC_SUPPLY_TYPES = [
@@ -30,73 +40,47 @@ export async function getRegion(regionId) {
     const docRef = doc(db, REGIONS_COLLECTION, regionId);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
-      console.log("No region found with ID:", regionId);
       return null;
     }
     return { id: docSnap.id, ...docSnap.data() };
   } catch (error) {
-    console.error("Error getting region:", error);
     throw error;
   }
 }
 
 export async function getZonesForRegion(regionId) {
   try {
-    // First get the region to get zoneRefs
     const region = await getRegion(regionId);
-    console.log("Region data:", region);
 
     if (!region || !region.zoneRefs) {
-      console.log("No zones found for region:", regionId);
       return [];
     }
 
-    // Fetch each zone and its boundary
     const zones = [];
     for (const zoneId of region.zoneRefs) {
-      console.log("Processing zone:", zoneId);
       const zoneDoc = await getDoc(doc(db, ZONES_COLLECTION, zoneId));
       if (zoneDoc.exists()) {
         const zoneData = zoneDoc.data();
-        console.log("Zone data:", zoneData);
 
-        // Get the boundary data
         const boundaryDoc = await getDoc(
           doc(db, BOUNDARIES_COLLECTION, zoneData.boundaryId)
         );
         if (boundaryDoc.exists()) {
           const boundaryData = boundaryDoc.data();
-          console.log("Raw boundary data:", boundaryData);
-
           try {
-            // Parse the geometry string back to JSON
             const geometry = JSON.parse(boundaryData.geometry);
-            console.log("Parsed geometry:", geometry);
-
             zones.push({
               ...zoneData,
               boundaries: geometry,
             });
           } catch (parseError) {
-            console.error(
-              "Error parsing geometry for zone:",
-              zoneId,
-              parseError
-            );
-            // Continue with next zone if parsing fails
             continue;
           }
-        } else {
-          console.log("No boundary found for zone:", zoneId);
         }
-      } else {
-        console.log("Zone not found:", zoneId);
       }
     }
-    console.log("Final zones array:", zones);
     return zones;
   } catch (error) {
-    console.error("Error getting zones for region:", error);
     throw error;
   }
 }
@@ -104,18 +88,11 @@ export async function getZonesForRegion(regionId) {
 // Supply Types Functions
 export async function initializeBasicSupplyTypes() {
   try {
-    console.log("Starting supply types initialization...");
     const collectionRef = collection(db, SUPPLY_TYPES_COLLECTION);
-
     for (const supplyType of BASIC_SUPPLY_TYPES) {
-      console.log("Creating supply type:", supplyType);
-      const docRef = await addDoc(collectionRef, supplyType);
-      console.log("Created supply type with ID:", docRef.id);
+      await addDoc(collectionRef, supplyType);
     }
-
-    console.log("All supply types initialized successfully");
   } catch (error) {
-    console.error("Error initializing supply types:", error);
     throw error;
   }
 }
@@ -159,4 +136,170 @@ export async function initializeZoneSupplies(zoneId) {
   }));
 
   await updateZoneSupplies(zoneId, supplies);
+}
+
+// Organization Functions
+export async function createOrganization(userData) {
+  try {
+    const auth = getAuth();
+    // Create authentication account
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      userData.email,
+      userData.password
+    );
+
+    // Create organization document
+    const organizationData = {
+      id: userCredential.user.uid,
+      name: userData.organizationName,
+      email: userData.email,
+      website: userData.website || null,
+      contactPhone: userData.contactPhone || null,
+      supplyTypes: userData.supplyTypes,
+      countries: userData.countries,
+      credibility: Math.floor(Math.random() * 5) + 1, // Random 1-5
+      donations: [],
+      createdAt: new Date(),
+    };
+
+    await setDoc(
+      doc(db, ORGANIZATIONS_COLLECTION, userCredential.user.uid),
+      organizationData
+    );
+    return organizationData;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function signInOrganization(email, password) {
+  try {
+    const auth = getAuth();
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    const organizationDoc = await getDoc(
+      doc(db, ORGANIZATIONS_COLLECTION, userCredential.user.uid)
+    );
+
+    if (!organizationDoc.exists()) {
+      throw new Error("Organization not found");
+    }
+
+    const organizationData = {
+      id: organizationDoc.id,
+      ...organizationDoc.data(),
+    };
+    return organizationData;
+  } catch (error) {
+    if (error.code === "auth/invalid-credential") {
+      throw new Error("Invalid email or password");
+    }
+    throw error;
+  }
+}
+
+export async function signOutOrganization() {
+  try {
+    const auth = getAuth();
+    await signOut(auth);
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function getOrganization(id) {
+  try {
+    const docRef = doc(db, ORGANIZATIONS_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      return null;
+    }
+    return { id: docSnap.id, ...docSnap.data() };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export function getCurrentUser() {
+  return new Promise((resolve, reject) => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        unsubscribe();
+        resolve(user);
+      },
+      reject
+    );
+  });
+}
+
+export function isLoggedIn() {
+  const auth = getAuth();
+  return auth.currentUser !== null;
+}
+
+export async function createDonation(donationData) {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User must be logged in to make a donation");
+    }
+
+    // Create the donation document
+    const donationRef = await addDoc(collection(db, DONATIONS_COLLECTION), {
+      organizationId: user.uid,
+      ...donationData,
+      status: "delivered",
+      createdAt: new Date(),
+    });
+
+    // Update the organization's lastDonationRegion
+    const orgRef = doc(db, ORGANIZATIONS_COLLECTION, user.uid);
+    await updateDoc(orgRef, {
+      lastDonationRegion: donationData.regionCode,
+      donations: arrayUnion(donationRef.id),
+    });
+
+    // Update zone supplies
+    const zoneRef = doc(db, `zones/${donationData.zoneId}`);
+    const zoneDoc = await getDoc(zoneRef);
+
+    if (!zoneDoc.exists()) {
+      throw new Error("Zone not found");
+    }
+
+    const zoneData = zoneDoc.data();
+    const supplies = zoneData.supplies || [];
+
+    // Find existing supply or create new one
+    const supplyIndex = supplies.findIndex(
+      (s) => s.supplyTypeId === donationData.supplyTypeId
+    );
+
+    if (supplyIndex >= 0) {
+      supplies[supplyIndex].quantity += parseInt(donationData.quantity);
+      supplies[supplyIndex].lastUpdated = new Date();
+    } else {
+      supplies.push({
+        supplyTypeId: donationData.supplyTypeId,
+        quantity: parseInt(donationData.quantity),
+        lastUpdated: new Date(),
+      });
+    }
+
+    await updateDoc(zoneRef, {
+      supplies: supplies,
+    });
+
+    return donationRef.id;
+  } catch (error) {
+    throw error;
+  }
 }

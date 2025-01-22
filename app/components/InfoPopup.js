@@ -28,6 +28,25 @@ export default function InfoPopup({ info, onClose, selectedSupplyType }) {
   const [isLoading, setIsLoading] = useState(false);
   const zoneListener = useRef(null);
   const previousZoneData = useRef(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!info) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, "zones", info.id),
+      (doc) => {
+        if (doc.exists()) {
+          setZoneData({ id: doc.id, ...doc.data() });
+        }
+      },
+      (error) => {
+        setError("Failed to load zone data");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [info]);
 
   useEffect(() => {
     const loadData = async () => {
