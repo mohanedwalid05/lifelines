@@ -11,10 +11,15 @@ export default function Home() {
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
   const [regions, setRegions] = useState([]);
   const [selectedRegion, setSelectedRegion] = useState(null);
+  const [supplyUpdateCounter, setSupplyUpdateCounter] = useState(0);
 
   const handleCountryChange = (country) => {
     setSelectedCountry(country);
     setSelectedRegion(null);
+  };
+
+  const triggerMapUpdate = () => {
+    setSupplyUpdateCounter((prev) => prev + 1);
   };
 
   return (
@@ -51,6 +56,7 @@ export default function Home() {
               onRegionsLoad={setRegions}
               selectedRegion={selectedRegion}
               onRegionSelect={setSelectedRegion}
+              supplyUpdateTrigger={supplyUpdateCounter}
             />
           </div>
         </div>
