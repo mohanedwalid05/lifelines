@@ -9,8 +9,7 @@ import { useRouter } from "next/navigation";
 
 export default function ProfileIndicator() {
   const [organization, setOrganization] = useState(null);
-  const router = useRouter();
-
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   useEffect(() => {
     const fetchOrganization = async () => {
       try {
@@ -18,8 +17,10 @@ export default function ProfileIndicator() {
         if (user) {
           const orgData = await getOrganization(user.uid);
           setOrganization(orgData);
+          setIsLoggedIn(true);
         } else {
           setOrganization(null);
+          setIsLoggedIn(false);
         }
       } catch (error) {
         console.error("Error fetching organization:", error);
@@ -32,22 +33,20 @@ export default function ProfileIndicator() {
   const handleSignOut = async () => {
     try {
       await signOutOrganization();
+      setIsLoggedIn(false);
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
-  if (!organization)
-    return (
-      <button
-        onClick={() => (window.location.href = "/auth/login")}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-      >
-        Login
-      </button>
-    );
-
-  return (
+  return !isLoggedIn ? (
+    <button
+      onClick={() => (window.location.href = "/auth/login")}
+      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+    >
+      Login
+    </button>
+  ) : (
     <>
       <div className="flex flex-col">
         <span className="text-sm text-gray-500">Signed in as</span>
