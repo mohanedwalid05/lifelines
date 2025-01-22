@@ -4,6 +4,8 @@ import Map from "./components/Map";
 import CountrySelector from "./components/CountrySelector";
 import RegionsList from "./components/RegionsList";
 import { COUNTRIES } from "./data/countries";
+import ProfileIndicator from "./components/ProfileIndicator";
+import DonateButton from "./components/DonateButton";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -24,17 +26,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="fixed top-0 left-0 right-0 z-10 bg-white shadow">
-        <div className="container mx-auto px-4">
-          <CountrySelector
-            countries={COUNTRIES}
-            selectedCountry={selectedCountry}
-            onCountryChange={handleCountryChange}
-          />
-        </div>
-      </div>
-
       <div className="flex">
+        <div className="fixed top-0 left-0 right-0 z-10 bg-white shadow">
+          <div className="container mx-auto px-4 flex justify-between items-center">
+            <CountrySelector
+              countries={COUNTRIES}
+              selectedCountry={selectedCountry}
+              onCountryChange={handleCountryChange}
+            />
+            <ProfileIndicator />
+          </div>
+        </div>
         {/* Sidebar */}
         <div className="fixed top-[88px] left-0 w-64 h-[calc(100vh-88px)] overflow-y-auto border-r border-gray-200 bg-white">
           <RegionsList
@@ -58,11 +60,10 @@ export default function Home() {
               onRegionSelect={setSelectedRegion}
               supplyUpdateTrigger={supplyUpdateCounter}
             />
+            <DonateButton />
           </div>
         </div>
       </div>
-
-      <button></button>
     </div>
   );
 }
