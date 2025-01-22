@@ -18,6 +18,8 @@ export default function ProfileIndicator() {
         if (user) {
           const orgData = await getOrganization(user.uid);
           setOrganization(orgData);
+        } else {
+          setOrganization(null);
         }
       } catch (error) {
         console.error("Error fetching organization:", error);
@@ -30,16 +32,23 @@ export default function ProfileIndicator() {
   const handleSignOut = async () => {
     try {
       await signOutOrganization();
-      router.push("/auth/login");
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
-  if (!organization) return null;
+  if (!organization)
+    return (
+      <button
+        onClick={() => (window.location.href = "/auth/login")}
+        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+      >
+        Login
+      </button>
+    );
 
   return (
-    <div className="fixed top-4 right-4 flex items-center gap-4 bg-white shadow-lg rounded-lg p-4 z-50">
+    <>
       <div className="flex flex-col">
         <span className="text-sm text-gray-500">Signed in as</span>
         <span className="font-semibold text-gray-900">{organization.name}</span>
@@ -50,6 +59,6 @@ export default function ProfileIndicator() {
       >
         Sign Out
       </button>
-    </div>
+    </>
   );
 }
