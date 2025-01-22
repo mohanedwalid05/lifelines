@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Map from "./components/Map";
 import CountrySelector from "./components/CountrySelector";
 import RegionsList from "./components/RegionsList";
 import { COUNTRIES } from "./data/countries";
 import ProfileIndicator from "./components/ProfileIndicator";
 import DonateButton from "./components/DonateButton";
+import { getCurrentUser } from "./utils/firebase-utils";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -14,6 +15,15 @@ export default function Home() {
   const [regions, setRegions] = useState([]);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [supplyUpdateCounter, setSupplyUpdateCounter] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      setIsLoggedIn(!!user);
+    };
+    checkAuth();
+  }, []);
 
   const handleCountryChange = (country) => {
     setSelectedCountry(country);
@@ -60,7 +70,7 @@ export default function Home() {
               onRegionSelect={setSelectedRegion}
               supplyUpdateTrigger={supplyUpdateCounter}
             />
-            <DonateButton />
+            {isLoggedIn && <DonateButton />}
           </div>
         </div>
       </div>

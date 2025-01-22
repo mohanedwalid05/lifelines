@@ -199,6 +199,26 @@ export default function InfoPopup({ info, onClose, selectedSupplyType }) {
               </p>
             )}
           </div>
+
+          {/* Donate Button */}
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                const params = new URLSearchParams({
+                  regionCode: info.id.split("-")[0],
+                  zoneId: info.id,
+                  zoneName: info.name,
+                });
+                if (selectedSupplyType) {
+                  params.append("supplyTypeId", selectedSupplyType);
+                }
+                window.location.href = `/donate?${params.toString()}`;
+              }}
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors"
+            >
+              Donate to {info.name}
+            </button>
+          </div>
         </div>
       </div>
     </div>

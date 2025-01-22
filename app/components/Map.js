@@ -349,7 +349,7 @@ export default function Map({
   };
 
   return (
-    <div className="relative w-full h-[600px]">
+    <div className="relative w-full  h-[600px]">
       <div className="absolute top-4 left-4 z-10">
         <select
           value={selectedSupplyType}
