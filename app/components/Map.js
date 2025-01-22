@@ -2,23 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import InfoPopup from "./InfoPopup";
+import {
+  createOrUpdateZone,
+  initializeZoneSupplies,
+} from "../utils/firebase-utils";
 
 const COLORS = [
-  "#FF5733",
-  "#33FF57",
-  "#3357FF",
-  "#FFD700",
-  "#FF69B4",
-  "#4B0082",
-  "#00CED1",
-  "#FF4500",
-  "#32CD32",
-  "#BA55D3",
-  "#FF8C00",
-  "#20B2AA",
-  "#FF1493",
-  "#00FA9A",
-  "#9370DB",
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#96CEB4",
+  "#FFEEAD",
+  "#D4A5A5",
+  "#9FA8DA",
+  "#FFE082",
+  "#A5D6A7",
+  "#EF9A9A",
 ];
 
 export default function Map({
@@ -62,11 +61,30 @@ export default function Map({
         geometry: feature.geometry,
       }));
 
+      // Create or update zones in Firebase
+      for (const feature of features) {
+        const zoneId = `${country.code}-${feature.properties.name
+          .replace(/\s+/g, "-")
+          .toLowerCase()}`;
+        const zone = {
+          id: zoneId,
+          name: feature.properties.name,
+          countryCode: country.code,
+          supplies: [],
+        };
+
+        await createOrUpdateZone(zone);
+        await initializeZoneSupplies(zoneId);
+      }
+
       // Send regions data to parent
       onRegionsLoad(
         features.map((f) => ({
           ...f.properties,
           fillColor: f.properties.fillColor,
+          id: `${country.code}-${f.properties.name
+            .replace(/\s+/g, "-")
+            .toLowerCase()}`,
         }))
       );
 
